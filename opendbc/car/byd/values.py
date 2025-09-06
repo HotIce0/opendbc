@@ -8,12 +8,6 @@ from opendbc.car.fw_query_definitions import FwQueryConfig, Request, StdQueries
 Ecu = CarParams.Ecu
 
 
-class BydSteerStates(IntFlag):
-  IDLE = 0
-  FAULTED = 1
-  STEER_ENABLED = 2
-
-
 class CANBUS:
   main_bus = 0
   radar_bus = 1

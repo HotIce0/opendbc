@@ -19,7 +19,12 @@ def byd_checksum(data: bytearray) -> int:
 
   return (((inv_first + (5 - remainder)) << 4) + inv_second) & 0xFF
 
+
 def byd_checksum_short(data: bytearray) -> int:
   # checksum for CHECKSUM_S 4byte
   pass
 
+
+class BydCAN:
+  def __init__(self, packer):
+    self.packer = packer
