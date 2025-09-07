@@ -10,10 +10,5 @@ FINGERPRINTS = {
 }
 
 #Todo: Get a byd VDS to see how fw could be queried. Currently added just for preventing ruffs error.
-FW_VERSIONS = {
-  CAR.BYD_HAN_EV_23: {
-    (Ecu.eps, 0x700, None): [
-      b'DUMMYDATA',
-    ],
-  },
+FW_VERSIONS: dict[str, dict[tuple, list[bytes]]] = {
 }
