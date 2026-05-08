@@ -342,3 +342,4 @@ extern const safety_hooks volkswagen_mqb_hooks;
 extern const safety_hooks volkswagen_pq_hooks;
 extern const safety_hooks rivian_hooks;
 extern const safety_hooks psa_hooks;
+extern const safety_hooks byd_hooks;

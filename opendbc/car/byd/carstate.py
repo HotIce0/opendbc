@@ -11,7 +11,9 @@ class CarState(CarStateBase):
   def __init__(self, CP):
     super().__init__(CP)
 
-    self.mpc_lkas_msg = None
+    self.mpc_lkas_cmd_msg = None
+    self.eps_prepared = False
+    self.eps_activated = False
 
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
@@ -68,7 +70,9 @@ class CarState(CarStateBase):
     # ret.rightBlindspot = False
 
     # Messages needed by carcontroller
-    self.mpc_lkas_msg = copy.copy(cp_cam.vl["MPC_LKAS_CMD"])
+    self.mpc_lkas_cmd_msg = copy.copy(cp_cam.vl["MPC_LKAS_CMD"])
+    self.eps_prepared = cp.vl["STEERING_TORQUE"]["LKSPrepare"] != 0
+    self.eps_activated = cp.vl["STEERING_TORQUE"]["Cruise_Activated"] != 0
 
     return ret
 

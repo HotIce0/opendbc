@@ -1,3 +1,5 @@
+import numpy as np
+from enum import Enum
 from opendbc.can.packer import CANPacker
 from opendbc.car import Bus, structs
 from opendbc.car.lateral import apply_meas_steer_torque_limits
@@ -9,6 +11,10 @@ VisualAlert = structs.CarControl.HUDControl.VisualAlert
 ButtonType = structs.CarState.ButtonEvent.Type
 LongCtrlState = structs.CarControl.Actuators.LongControlState
 
+class LKASState:
+  INACTIVE = 0
+  PREPARING = 1
+  ACTIVE = 2
 
 class CarController(CarControllerBase):
   def __init__(self, dbc_names, CP):
@@ -18,25 +24,53 @@ class CarController(CarControllerBase):
     self.can = BydCAN(self.packer)
     self.apply_torque_last = 0
 
+    self.lkas_state = LKASState.INACTIVE
+    self.lkas_counter_updated = False
+
   def update(self, CC, CS, now_nanos):
     # car control running in 100Hz
     actuators = CC.actuators
     can_sends = []
 
-    apply_torque = 0
     if (self.frame % self.params.STEER_SETP) == 0:
-      # steer torque
-      apply_torque = int(round(actuators.torque * self.params.STEER_MAX))
-      apply_torque = apply_meas_steer_torque_limits(apply_torque, self.apply_torque_last,
-        CS.out.steeringTorqueEps, self.params)
-      pack = self.can.create_steering_control_torque(apply_torque,
-                                                    CC.enabled, CS.mpc_lkas_msg)
+      # steering control running in 50Hz
+      if not self.lkas_counter_updated:
+        self.lkas_counter_updated = True
+        self.can.update_mpc_lkas_counter(int(CS.mpc_lkas_cmd_msg["COUNTER"] + 1) & 0xF)
+
+      # update lkas state
+      if self.lkas_state == LKASState.INACTIVE:
+        if CC.latActive:
+          self.lkas_state = LKASState.PREPARING
+      elif self.lkas_state == LKASState.PREPARING:
+        if CS.eps_prepared:
+          self.lkas_state = LKASState.ACTIVE
+      elif self.lkas_state == LKASState.ACTIVE:
+        if not CC.latActive:
+          self.lkas_state = LKASState.INACTIVE
+
+      lkas_request_prepare = int(self.lkas_state == LKASState.PREPARING)
+      lkas_active = int(self.lkas_state == LKASState.ACTIVE)
+      if self.lkas_state in (LKASState.PREPARING, LKASState.ACTIVE):
+        lkas_mode = BydCAN.LKAS_MODE_ACTIVE2
+      else:
+        lkas_mode = BydCAN.LKAS_MODE_PASSIVE
+
+      # calc apply torque
+      apply_torque = 0
+      if self.lkas_state == LKASState.ACTIVE:
+        apply_torque = int(round(actuators.torque * self.params.STEER_MAX))
+        apply_torque = apply_meas_steer_torque_limits(apply_torque, self.apply_torque_last,
+          CS.out.steeringTorqueEps, self.params)
+
+      pack = self.can.create_steering_control_torque(CS.mpc_lkas_cmd_msg, apply_torque, lkas_request_prepare,
+                                                    lkas_active, lkas_mode, CS.eps_activated)
       can_sends.append(pack)
+      self.apply_torque_last = apply_torque
 
     new_actuators = actuators.as_builder()
-    new_actuators.torque = apply_torque / self.params.STEER_MAX
-    new_actuators.torqueOutputCan = apply_torque
+    new_actuators.torque = self.apply_torque_last / self.params.STEER_MAX
+    new_actuators.torqueOutputCan = self.apply_torque_last
 
-    self.apply_torque_last = apply_torque
     self.frame += 1
     return new_actuators, can_sends

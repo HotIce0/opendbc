@@ -26,58 +26,52 @@ def byd_checksum_short(data: bytearray) -> int:
 
 
 class BydCAN:
+  LKAS_MODE_ACTIVE2 = 3
+  LKAS_MODE_PASSIVE = 1
+
   def __init__(self, packer):
     self.packer = packer
-
     self.mpc_lkas_counter = 0
-    self.mpc_lkas_prepared = 0
 
-  def generate_mpc_lkas_new_counter(self):
+  def update_mpc_lkas_counter(self, val):
+    self.mpc_lkas_counter = val
+
+  def _generate_mpc_lkas_new_counter(self):
     counter = self.mpc_lkas_counter
     self.mpc_lkas_counter = int(self.mpc_lkas_counter + 1) & 0xF
     return counter
 
   # MPC -> Panda -> EPS
-  def create_steering_control_torque(self, torque, enabled, mpc_lkas_msg):
-    lkas_output = mpc_lkas_msg["LKAS_Output"]
-    lkas_prepare = mpc_lkas_msg["LKASPrepare"]
-    lkas_active = mpc_lkas_msg["LKAS_ACTIVE"]
-    lkas_mode = mpc_lkas_msg["LKAS_Mode"]
+  def create_steering_control_torque(self, mpc_lkas_cmd_msg, torque, request_prepare, active, mode, eps_active):
+    lkas_output = torque if active and eps_active else 0
+    lkas_prepare = request_prepare
+    lkas_active = active
+    lkas_mode = mode
+    left_lane = mpc_lkas_cmd_msg["LeftLane"]
+    right_lane = mpc_lkas_cmd_msg["RightLane"]
+    if active or request_prepare:
+      left_lane = 1
+      right_lane = 1
+    lkas_counter = self._generate_mpc_lkas_new_counter()
 
-    if enabled:
-      if self.mpc_lkas_prepared == 0:
-        self.mpc_lkas_prepared = 1
-        lkas_output = 0
-        lkas_prepare = 1
-        lkas_active = 0
-      else:
-        lkas_output = torque
-        lkas_prepare = 0
-        lkas_active = 1
-      lkas_mode = 2
-    else: # enabled is False
-      self.mpc_lkas_prepared = 0
-
-    self.mpc_lkas_last_active = lkas_active
-    lkas_counter = self.mpc_lkas_counter = self.generate_mpc_lkas_new_counter()
     values = {
-      "SETME_0x1": mpc_lkas_msg["SETME_0x1"],
-      "LeftLane": mpc_lkas_msg["LeftLane"],
-      "Config": mpc_lkas_msg["Config"],
-      "SETME2_0x1": mpc_lkas_msg["SETME2_0x1"],
+      "SETME_0x1": mpc_lkas_cmd_msg["SETME_0x1"],
+      "LeftLane": left_lane,
+      "Config": mpc_lkas_cmd_msg["Config"],
+      "SETME2_0x1": mpc_lkas_cmd_msg["SETME2_0x1"],
       "Keep_Hands_On_Wheel": 0,
-      "MPCErr": mpc_lkas_msg["MPCErr"],
-      "SETME3_0x1": mpc_lkas_msg["SETME3_0x1"],
+      "MPCErr": mpc_lkas_cmd_msg["MPCErr"],
+      "SETME3_0x1": mpc_lkas_cmd_msg["SETME3_0x1"],
       "LKAS_Output": lkas_output,
       "LKASPrepare": lkas_prepare,
       "LKAS_ACTIVE": lkas_active,
-      "TSRStatus": mpc_lkas_msg["TSRStatus"],
-      "SETME4_0x1": mpc_lkas_msg["SETME4_0x1"],
-      "RightLane": mpc_lkas_msg["RightLane"],
+      "TSRStatus": mpc_lkas_cmd_msg["TSRStatus"],
+      "SETME4_0x1": mpc_lkas_cmd_msg["SETME4_0x1"],
+      "RightLane": right_lane,
       "LKAS_Mode": lkas_mode,
-      "SETME_0x0": mpc_lkas_msg["SETME_0x0"],
-      "TSRResult": mpc_lkas_msg["TSRResult"],
-      "Unknow1": mpc_lkas_msg["Unknow1"],
+      "SETME_0x0": mpc_lkas_cmd_msg["SETME_0x0"],
+      "TSRResult": mpc_lkas_cmd_msg["TSRResult"],
+      "Unknow1": mpc_lkas_cmd_msg["Unknow1"],
       "COUNTER": lkas_counter,
     }
     data = self.packer.make_can_msg("MPC_LKAS_CMD", CANBUS.main_bus, values)[1]
