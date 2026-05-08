@@ -33,8 +33,8 @@ class BydPlatformConfig(PlatformConfig):
 class CAR(Platforms):
   BYD_HAN_EV_23 = BydPlatformConfig(
     [BydCarDocs("BYD HAN EV 23")],
-    [CarSpecs(mass=1940 + STD_CARGO_KG, wheelbase=2.92, steerRatio=16.5,
-              centerToFrontRatio=0.44, tireStiffnessFactor=1.0)]
+    CarSpecs(mass=1940 + STD_CARGO_KG, wheelbase=2.92, steerRatio=16.5,
+              centerToFrontRatio=0.44, tireStiffnessFactor=1.0)
   )
 
 

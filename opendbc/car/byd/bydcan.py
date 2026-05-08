@@ -80,6 +80,6 @@ class BydCAN:
       "Unknow1": mpc_lkas_msg["Unknow1"],
       "COUNTER": lkas_counter,
     }
-    data = self.packer.make_can_msg("MPC_LKAS_CMD", CANBUS.main_bus, values)
+    data = self.packer.make_can_msg("MPC_LKAS_CMD", CANBUS.main_bus, values)[1]
     values["CHECKSUM"] = byd_checksum(data)
     return self.packer.make_can_msg("MPC_LKAS_CMD", CANBUS.main_bus, values)

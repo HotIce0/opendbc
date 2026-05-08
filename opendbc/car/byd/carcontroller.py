@@ -23,13 +23,14 @@ class CarController(CarControllerBase):
     actuators = CC.actuators
     can_sends = []
 
+    apply_torque = 0
     if (self.frame % self.params.STEER_SETP) == 0:
       # steer torque
       apply_torque = int(round(actuators.torque * self.params.STEER_MAX))
       apply_torque = apply_meas_steer_torque_limits(apply_torque, self.apply_torque_last,
         CS.out.steeringTorqueEps, self.params)
       pack = self.can.create_steering_control_torque(apply_torque,
-                                                    CC.enabled)
+                                                    CC.enabled, CS.mpc_lkas_msg)
       can_sends.append(pack)
 
     new_actuators = actuators.as_builder()
