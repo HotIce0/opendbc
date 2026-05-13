@@ -36,7 +36,10 @@ class CarController(CarControllerBase):
       # steering control running in 50Hz
       if not self.lkas_counter_updated:
         self.lkas_counter_updated = True
-        self.can.update_mpc_lkas_counter(int(CS.mpc_lkas_cmd_msg["COUNTER"] + 1) & 0xF)
+        self.can.update_mpc_lkas_counter(
+          int(CS.mpc_lkas_cmd_msg["COUNTER"] + 1) & 0xF)
+        self.can.update_eps_steering_torque_counter(
+          int(CS.eps_steering_torque_msg["COUNTER"] + 1) & 0xF)
 
       # update lkas state
       if self.lkas_state == LKASState.INACTIVE:
@@ -63,9 +66,16 @@ class CarController(CarControllerBase):
         apply_torque = apply_meas_steer_torque_limits(apply_torque, self.apply_torque_last,
           CS.out.steeringTorqueEps, self.params)
 
-      pack = self.can.create_steering_control_torque(CS.mpc_lkas_cmd_msg, apply_torque, lkas_request_prepare,
-                                                    lkas_active, lkas_mode, CS.eps_activated)
+      pack = self.can.create_steering_control_torque(CS.mpc_lkas_cmd_msg, apply_torque,
+                                                     lkas_request_prepare, lkas_active,
+                                                     lkas_mode, CS.eps_activated)
       can_sends.append(pack)
+      pack = self.can.create_steering_torque(CS.eps_steering_torque_msg,
+                                             CS.mpc_lkas_output,
+                                             CS.mpc_lkas_request_prepare,
+                                             CS.mpc_lkas_active)
+      can_sends.append(pack)
+
       self.apply_torque_last = apply_torque
 
     new_actuators = actuators.as_builder()

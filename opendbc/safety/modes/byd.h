@@ -34,6 +34,7 @@ static safety_config byd_init(uint16_t param) {
 
   static const CanMsg BYD_TX_MSGS[] = {
     {790, 0, 8, .check_relay = true}, // MPC_LKAS_CMD
+    {792, 2, 8, .check_relay = true}, // STEERING_TORQUE
   };
 
   // static const CanMsg BYD_TX_LONG_MSGS[] = {

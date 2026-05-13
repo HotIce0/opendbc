@@ -12,8 +12,13 @@ class CarState(CarStateBase):
     super().__init__(CP)
 
     self.mpc_lkas_cmd_msg = None
+    self.eps_steering_torque_msg = None
     self.eps_prepared = False
     self.eps_activated = False
+
+    self.mpc_lkas_output = 0
+    self.mpc_lkas_active = False
+    self.mpc_lkas_request_prepare = False
 
   def update(self, can_parsers) -> structs.CarState:
     cp = can_parsers[Bus.pt]
@@ -70,10 +75,15 @@ class CarState(CarStateBase):
     # ret.rightBlindspot = False
 
     # Messages needed by carcontroller
+    # for generate MPC_LKAS_CMD
     self.mpc_lkas_cmd_msg = copy.copy(cp_cam.vl["MPC_LKAS_CMD"])
     self.eps_prepared = cp.vl["STEERING_TORQUE"]["LKSPrepare"] != 0
     self.eps_activated = cp.vl["STEERING_TORQUE"]["Cruise_Activated"] != 0
-
+    # for generate STEERING_TORQUE
+    self.eps_steering_torque_msg = copy.copy(cp.vl["STEERING_TORQUE"])
+    self.mpc_lkas_output = cp_cam.vl["MPC_LKAS_CMD"]["LKAS_Output"]
+    self.mpc_lkas_active = cp_cam.vl["MPC_LKAS_CMD"]["LKAS_ACTIVE"] != 0
+    self.mpc_lkas_request_prepare = cp_cam.vl["MPC_LKAS_CMD"]["LKASPrepare"] != 0
     return ret
 
   @staticmethod
