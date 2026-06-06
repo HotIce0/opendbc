@@ -33,6 +33,7 @@ class BydCAN:
     self.packer = packer
     self.mpc_lkas_counter = 0
     self.eps_steering_torque_counter = 0
+    self.mpc_acc_cmd_counter = 0
 
   def update_mpc_lkas_counter(self, val):
     self.mpc_lkas_counter = val
@@ -49,6 +50,14 @@ class BydCAN:
     counter = self.eps_steering_torque_counter
     self.eps_steering_torque_counter = int(
       self.eps_steering_torque_counter + 1) & 0xF
+    return counter
+
+  def update_acc_cmd_counter(self, val):
+    self.mpc_acc_cmd_counter = val
+
+  def _generate_acc_cmd_new_counter(self):
+    counter = self.mpc_acc_cmd_counter
+    self.mpc_acc_cmd_counter = int(self.mpc_acc_cmd_counter + 1) & 0xF
     return counter
 
   # MPC -> Panda -> EPS
@@ -129,3 +138,25 @@ class BydCAN:
     data = self.packer.make_can_msg("STEERING_TORQUE", CANBUS.cam_bus, values)[1]
     values["CHECKSUM"] = byd_checksum(data)
     return self.packer.make_can_msg("STEERING_TORQUE", CANBUS.cam_bus, values)
+
+  def create_acc_cmd(self, acc_cmd_msg, accel):
+    values = {
+      "ACCEL_CMD": accel,
+      "ComfortBandUpper": acc_cmd_msg["ComfortBandUpper"],
+      "ComfortBandLower": acc_cmd_msg["ComfortBandLower"],
+      "JerkUpperLimit": 1,
+      "SET_ME_1": acc_cmd_msg["SET_ME_1"],
+      "JerkLowerLimit": -1,
+      "STANDSTILL_RESUME": 0,
+      "STANDSTILL_STATE": 0,
+      "BRAKE_BEHAVIOR": acc_cmd_msg["BRAKE_BEHAVIOR"],
+      "ACC_REQ_NOT_STANDSTILL": acc_cmd_msg["ACC_REQ_NOT_STANDSTILL"],
+      "ACC_CONTROLLABLE_AND_ON": acc_cmd_msg["ACC_CONTROLLABLE_AND_ON"],
+      "ACC_OVERRIDE_OR_STANDSTILL": acc_cmd_msg["ACC_OVERRIDE_OR_STANDSTILL"],
+      "ESP_BEHAVIOR": acc_cmd_msg["ESP_BEHAVIOR"],
+      "COUNTER": self._generate_acc_cmd_new_counter(),
+      "SET_ME_XF": acc_cmd_msg["SET_ME_XF"],
+    }
+    data = self.packer.make_can_msg("ACC_CMD", CANBUS.main_bus, values)[1]
+    values["CHECKSUM"] = byd_checksum(data)
+    return self.packer.make_can_msg("ACC_CMD", CANBUS.main_bus, values)

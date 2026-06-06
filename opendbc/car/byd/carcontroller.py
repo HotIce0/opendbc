@@ -27,6 +27,8 @@ class CarController(CarControllerBase):
     self.lkas_state = LKASState.INACTIVE
     self.lkas_counter_updated = False
 
+    self.apply_accel_last = 0
+
   def update(self, CC, CS, now_nanos):
     # car control running in 100Hz
     actuators = CC.actuators
@@ -40,6 +42,8 @@ class CarController(CarControllerBase):
           int(CS.mpc_lkas_cmd_msg["COUNTER"] + 1) & 0xF)
         self.can.update_eps_steering_torque_counter(
           int(CS.eps_steering_torque_msg["COUNTER"] + 1) & 0xF)
+        self.can.update_acc_cmd_counter(
+          int(CS.acc_cmd_msg["COUNTER"] + 1) & 0xF)
 
       # update lkas state
       if self.lkas_state == LKASState.INACTIVE:
@@ -78,9 +82,22 @@ class CarController(CarControllerBase):
 
       self.apply_torque_last = apply_torque
 
+    # Longitudinal control
+    if self.CP.openpilotLongitudinalControl:
+      if (self.frame % self.params.ACC_SETP) == 0:
+        accel = 0
+
+        if CC.longActive:
+          accel = float(np.clip(actuators.accel, self.params.ACCEL_MIN, self.params.ACCEL_MAX))
+
+        pack = self.can.create_acc_cmd(CS.acc_cmd_msg, accel)
+        can_sends.append(pack)
+        self.apply_accel_last = accel
+
     new_actuators = actuators.as_builder()
     new_actuators.torque = self.apply_torque_last / self.params.STEER_MAX
     new_actuators.torqueOutputCan = self.apply_torque_last
+    new_actuators.accel = self.apply_accel_last
 
     self.frame += 1
     return new_actuators, can_sends

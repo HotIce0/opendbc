@@ -15,6 +15,7 @@ class CarState(CarStateBase):
     self.eps_steering_torque_msg = None
     self.eps_prepared = False
     self.eps_activated = False
+    self.acc_cmd_msg = None
 
     self.mpc_lkas_output = 0
     self.mpc_lkas_active = False
@@ -26,7 +27,7 @@ class CarState(CarStateBase):
     ret = structs.CarState()
 
     # car Speed
-    ret.vEgoRaw = cp.vl["DRIVE_STATE"]["WHEELSPEED_HR"] * CV.KPH_TO_MS
+    ret.vEgoRaw = cp.vl["ESC"]["VEHICLE_SPEED"] * CV.KPH_TO_MS
     ret.vEgo, ret.aEgo = self.update_speed_kf(ret.vEgoRaw)
     ret.standstill = cp.vl["BRAKE_APPLIED"]["STANDSTILL"] == 1
 
@@ -54,7 +55,7 @@ class CarState(CarStateBase):
     ret.cruiseState.enabled = cp_cam.vl["ACC_HUD_ADAS"]["CRUISE_STATE"] in (3, 5) # (Active, Override)
     ret.cruiseState.speed = cp_cam.vl["ACC_HUD_ADAS"]["SET_SPEED"] * 10 * CV.KPH_TO_MS
     ret.cruiseState.available = cp_cam.vl["ACC_HUD_ADAS"]["CRUISE_STATE"] not in (8, 9) # (Failure, PermanentFailure)
-    ret.cruiseState.standstill = ret.standstill
+    ret.cruiseState.standstill = False  # This needs to be false, since we can resume from stop without sending anything special
 
     # Gear
     ret.gearShifter = GEAR_MAP.get(int(cp.vl["DRIVE_STATE"]["GEAR"]), GearShifter.unknown)
@@ -84,6 +85,8 @@ class CarState(CarStateBase):
     self.mpc_lkas_output = cp_cam.vl["MPC_LKAS_CMD"]["LKAS_Output"]
     self.mpc_lkas_active = cp_cam.vl["MPC_LKAS_CMD"]["LKAS_ACTIVE"] != 0
     self.mpc_lkas_request_prepare = cp_cam.vl["MPC_LKAS_CMD"]["LKASPrepare"] != 0
+    # for generate ACC_CMD
+    self.acc_cmd_msg = copy.copy(cp_cam.vl["ACC_CMD"])
     return ret
 
   @staticmethod

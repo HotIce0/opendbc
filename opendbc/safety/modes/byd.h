@@ -1,5 +1,6 @@
 #include "opendbc/safety/declarations.h"
 
+static bool byd_longitudinal = false;
 
 static bool byd_tx_hook(const CANPacket_t *msg) {
   SAFETY_UNUSED(msg);
@@ -23,8 +24,13 @@ static void byd_rx_hook(const CANPacket_t *msg) {
   else if (msg->bus == 2) {
     // ACC_HUD_ADAS
     if (msg->addr == 813) {
-      // ACC_ON2
-      controls_allowed = !!((msg->data[2] >> 3) & 0x01);
+      // CRUISE_STATE not in (3, 5)
+      uint8_t cruise_state = (msg->data[5] >> 4) & 0x0FU;
+      if (cruise_state == 3 || cruise_state == 5) {
+        controls_allowed = true;
+      } else {
+        controls_allowed = false;
+      }
     }
   }
 }
@@ -37,10 +43,11 @@ static safety_config byd_init(uint16_t param) {
     {792, 2, 8, .check_relay = true}, // STEERING_TORQUE
   };
 
-  // static const CanMsg BYD_TX_LONG_MSGS[] = {
-  //   {790, 0, 8, .check_relay = true}, // MPC_LKAS_CMD
-  //   {814, 0, 8, .check_relay = true}  // ACC_CMD
-  // };
+  static const CanMsg BYD_TX_LONG_MSGS[] = {
+    {790, 0, 8, .check_relay = true}, // MPC_LKAS_CMD
+    {792, 2, 8, .check_relay = true}, // STEERING_TORQUE
+    {814, 0, 8, .check_relay = true}, // ACC_CMD
+  };
 
   static RxCheck byd_rx_checks[] = {
     {.msg = {{578, 0, 8, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},  // DRIVE_STATE
@@ -54,7 +61,16 @@ static safety_config byd_init(uint16_t param) {
     {.msg = {{790, 2, 8, .ignore_checksum = true, .ignore_counter = true, .ignore_quality_flag = true}, { 0 }, { 0 }}},  // MPC_LKAS_CMD
   };
 
-  return BUILD_SAFETY_CFG(byd_rx_checks, BYD_TX_MSGS);
+  const uint16_t BYD_FLAG_LONG_CONTROL = 1;
+  byd_longitudinal = GET_FLAG(param, BYD_FLAG_LONG_CONTROL);
+
+  safety_config ret;
+  if (byd_longitudinal) {
+    ret = BUILD_SAFETY_CFG(byd_rx_checks, BYD_TX_LONG_MSGS);
+  } else {
+    ret = BUILD_SAFETY_CFG(byd_rx_checks, BYD_TX_MSGS);
+  }
+  return ret;
 }
 
 const safety_hooks byd_hooks = {

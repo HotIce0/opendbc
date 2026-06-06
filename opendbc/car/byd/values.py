@@ -18,6 +18,10 @@ class BydSafetyFlags(IntFlag):
   LONG_CONTROL = 1
 
 
+class BydFlags(IntFlag):
+  LONG_CONTROL = 1
+
+
 @dataclass
 class BydCarDocs(CarDocs):
   package: str = "All"
@@ -41,12 +45,18 @@ class CAR(Platforms):
 class CarControllerParams:
   def __init__(self, CP):
     self.STEER_SETP = 2 # 50Hz
+    self.ACC_SETP = 4 # 25Hz
 
     self.STEER_ERROR_MAX = 46
     if CP.carFingerprint == CAR.BYD_HAN_EV_23:
       self.STEER_MAX = 300
       self.STEER_DELTA_UP = 6
       self.STEER_DELTA_DOWN = 6
+
+    self.ACCEL_MAX = 2.0  # m/s^2
+    self.ACCEL_MIN = -4.0  # m/s^2
+    self.JERK_LIMIT_MAX = 4.0  # m/s^3
+    self.JERK_LIMIT_MIN = -4.0  # m/s^3
 
 
 STEER_THRESHOLD = 1
